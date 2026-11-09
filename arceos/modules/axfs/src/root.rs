@@ -133,12 +133,21 @@ impl VfsNodeOps for RootDirectory {
     }
 
     fn rename(&self, src_path: &str, dst_path: &str) -> VfsResult {
-        self.lookup_mounted_fs(src_path, |fs, rest_path| {
-            if rest_path.is_empty() {
-                ax_err!(PermissionDenied) // cannot rename mount points
-            } else {
-                fs.root_dir().rename(rest_path, dst_path)
+        self.lookup_mounted_fs(src_path, |fs, src_rest| {
+            if src_rest.is_empty() {
+                return ax_err!(PermissionDenied); // cannot rename mount points
             }
+            // `src_rest` has the mount point stripped, while `dst_path` is still
+            // the raw path passed by the caller. Resolve the destination against
+            // its mount as well, so the underlying filesystem receives two
+            // comparable paths. A rename must not cross filesystems.
+            self.lookup_mounted_fs(dst_path, |dst_fs, dst_rest| {
+                if dst_rest.is_empty() || !Arc::ptr_eq(&fs, &dst_fs) {
+                    ax_err!(PermissionDenied)
+                } else {
+                    fs.root_dir().rename(src_rest, dst_rest)
+                }
+            })
         })
     }
 }
