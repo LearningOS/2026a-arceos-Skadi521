@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-Skadi521",
-  "commit": "aa30908c43852cee45aa5b90537b2c878ee58d1d",
-  "score": 200,
+  "commit": "80f2219a8fee0b5c1132b150cee5ff37bbaa59c3",
+  "score": 300,
   "totalScore": 600,
   "exercises": [
     {
@@ -23,8 +23,8 @@
     {
       "name": "alt_alloc",
       "max": 100,
-      "score": 0,
-      "status": "fail",
+      "score": 100,
+      "status": "pass",
       "exitCode": 0
     },
     {
@@ -50,9 +50,9 @@
     }
   ],
   "student": "Skadi521",
-  "runId": "42548648002",
+  "runId": "42645270117",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
