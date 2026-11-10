@@ -25,6 +25,7 @@ use vcpu::_run_guest;
 use sbi::SbiMessage;
 use loader::load_vm_image;
 use axhal::mem::PhysAddr;
+use crate::regs::GprIndex;
 use crate::regs::GprIndex::{A0, A1};
 
 const VM_ENTRY: usize = 0x8020_0000;
@@ -102,10 +103,19 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
             }
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            // The guest runs in VS-mode, where M-mode CSRs such as `mhartid`
+            // cannot be accessed. Emulate the read and resume the guest instead
+            // of tearing the VM down.
+            let inst = stval::read();
+            if emulate_csr_read(ctx, inst) {
+                ax_println!("Emulated csr read: inst = {:#x}", inst);
+                ctx.guest_regs.sepc += 4;
+            } else {
+                panic!("Bad instruction: {:#x} sepc: {:#x}",
+                    inst,
+                    ctx.guest_regs.sepc
+                );
+            }
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
             panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
@@ -125,8 +135,36 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
     false
 }
 
-fn prepare_guest_context(ctx: &mut VmCpuRegisters) {
-    // Set hstatus
+/// Decodes and emulates a `csrr` that trapped in VS-mode.
+///
+/// Returns `true` if the instruction was emulated and the guest can resume.
+fn emulate_csr_read(ctx: &mut VmCpuRegisters, inst: usize) -> bool {
+    // RISC-V `SYSTEM` opcode, `CSRR` funct3, and the `csr[31:20] | rs1 | funct3 | rd`
+    // layout of `csrr rd, csr` (which is `csrrs rd, csr, x0`).
+    const OPCODE_SYSTEM: usize = 0b111_0011;
+    const FUNCT3_CSRR: usize = 0b010;
+    const CSR_MHARTID: usize = 0xf14;
+    /// The hart id presented to the guest: it is a virtual CPU, not a real hart.
+    const VIRTUAL_HART_ID: usize = 0x1234;
+
+    if inst & 0x7f != OPCODE_SYSTEM || (inst >> 12) & 0x7 != FUNCT3_CSRR {
+        return false;
+    }
+    let csr = (inst >> 20) & 0xfff;
+    let rd = match GprIndex::from_raw(((inst >> 7) & 0x1f) as u32) {
+        Some(rd) => rd,
+        None => return false,
+    };
+
+    let value = match csr {
+        CSR_MHARTID => VIRTUAL_HART_ID,
+        _ => return false,
+    };
+    ctx.guest_regs.gprs.set_reg(rd, value);
+    true
+}
+
+fn prepare_guest_context(ctx: &mut VmCpuRegisters) {    // Set hstatus
     let mut hstatus = LocalRegisterCopy::<usize, hstatus::Register>::new(
         riscv::register::hstatus::read().bits(),
     );
