@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-Skadi521",
-  "commit": "8c21f8f793192237772abd2a7dd7babc49792233",
-  "score": 500,
+  "commit": "d1f4b0a76e07554493c438909eb4df35cdc49c50",
+  "score": 600,
   "totalScore": 600,
   "exercises": [
     {
@@ -44,15 +44,15 @@
     {
       "name": "simple_hv",
       "max": 100,
-      "score": 0,
-      "status": "fail",
+      "score": 100,
+      "status": "pass",
       "exitCode": 0
     }
   ],
   "student": "Skadi521",
-  "runId": "42818616625",
+  "runId": "42822493714",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
