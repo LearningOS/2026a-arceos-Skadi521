@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2078,
   "repository": "LearningOS/2026a-arceos-Skadi521",
-  "commit": "80f2219a8fee0b5c1132b150cee5ff37bbaa59c3",
-  "score": 300,
+  "commit": "d3a787f1244390d8be2e01edf147d627654df4df",
+  "score": 400,
   "totalScore": 600,
   "exercises": [
     {
@@ -30,9 +30,9 @@
     {
       "name": "support_hashmap",
       "max": 100,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 2
+      "score": 100,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "sys_map",
@@ -50,9 +50,9 @@
     }
   ],
   "student": "Skadi521",
-  "runId": "42645270117",
+  "runId": "42731603373",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
