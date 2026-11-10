@@ -27,6 +27,10 @@ use loader::load_vm_image;
 use axhal::mem::PhysAddr;
 use crate::regs::GprIndex;
 use crate::regs::GprIndex::{A0, A1};
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+/// Number of host interrupts observed while the guest was running.
+static HOST_IRQ_IN_GUEST: AtomicUsize = AtomicUsize::new(0);
 
 const VM_ENTRY: usize = 0x8020_0000;
 
@@ -123,6 +127,22 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
                 ctx.guest_regs.sepc
             );
         },
+        Trap::Interrupt(interrupt) => {
+            // A host (HS-level) interrupt taken while the guest was running:
+            // `stvec` is redirected to `_guest_exit` for the whole guest run,
+            // so it lands here instead of in the kernel's interrupt handler.
+            // It is not a VM exit cause; resume the guest and let the pending
+            // interrupt be serviced once control returns to the hypervisor.
+            let seen = HOST_IRQ_IN_GUEST.fetch_add(1, Ordering::Relaxed);
+            ax_println!(
+                "Host interrupt in guest ({}): {:?}, resuming",
+                seen,
+                interrupt
+            );
+            if seen > 1000 {
+                panic!("host interrupt keeps firing inside the guest");
+            }
+        },
         _ => {
             panic!(
                 "Unhandled trap: {:?}, sepc: {:#x}, stval: {:#x}",
@@ -164,7 +184,8 @@ fn emulate_csr_read(ctx: &mut VmCpuRegisters, inst: usize) -> bool {
     true
 }
 
-fn prepare_guest_context(ctx: &mut VmCpuRegisters) {    // Set hstatus
+fn prepare_guest_context(ctx: &mut VmCpuRegisters) {
+    // Set hstatus
     let mut hstatus = LocalRegisterCopy::<usize, hstatus::Register>::new(
         riscv::register::hstatus::read().bits(),
     );
@@ -178,6 +199,11 @@ fn prepare_guest_context(ctx: &mut VmCpuRegisters) {    // Set hstatus
     // Set sstatus in guest mode.
     let mut sstatus = sstatus::read();
     sstatus.set_spp(sstatus::SPP::Supervisor);
+    // While the guest runs, `stvec` points at `_guest_exit`, so an HS-level
+    // interrupt would be reported as a VM exit. Mask HS interrupts for the
+    // duration of the guest run: the pending tick is delivered normally once
+    // control returns to the hypervisor.
+    sstatus.set_sie(false);
     ctx.guest_regs.sstatus = sstatus.bits();
     // Return to entry to start vm.
     ctx.guest_regs.sepc = VM_ENTRY;

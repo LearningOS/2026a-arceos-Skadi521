@@ -130,6 +130,15 @@ _guest_exit:
     sd    t0, ({guest_a0})(a0)
 
 _restore_csrs:
+    /* Restore `stvec` and `sscratch` before `sstatus`: once `sstatus` is back,
+       interrupts are re-enabled, and a pending one must not be taken while the
+       trap vector still points at `_guest_exit`. */
+    ld    t1, ({hyp_stvec})(a0)
+    csrw  stvec, t1
+
+    ld    t1, ({hyp_sscratch})(a0)
+    csrw  sscratch, t1
+
     /* Swap in hypervisor CSRs. */
     ld    t1, ({hyp_sstatus})(a0)
     csrrw t1, sstatus, t1
@@ -141,12 +150,6 @@ _restore_csrs:
     ld    t1, ({hyp_scounteren})(a0)
     csrrw t1, scounteren, t1
     sd    t1, ({guest_scounteren})(a0)
-
-    ld    t1, ({hyp_stvec})(a0)
-    csrw  stvec, t1
-
-    ld    t1, ({hyp_sscratch})(a0)
-    csrw  sscratch, t1
 
     /* Save guest EPC. */
     csrr  t1, sepc
